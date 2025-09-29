@@ -108,3 +108,4 @@ if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     print(f"Rodando em modo de desenvolvimento local. DEBUG={app.config['DEBUG']} na porta {port}")
     app.run(host='0.0.0.0', port=port, debug=app.config['DEBUG'])
+    
