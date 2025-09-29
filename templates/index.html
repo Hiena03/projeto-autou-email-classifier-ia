@@ -1,49 +1,46 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PROJETO AUTOU - Classificador de E-mail com IA</title>
+    <title>Classificador e Gerador de Respostas para E-mails com IA</title>
+    <!-- Inclui o CSS principal -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Classificador e Sugeridor de Respostas para E-mails</h1>
-        <p>Automatize a leitura e classificação de e-mails em categorias 'Produtivo' ou 'Improdutivo', e receba sugestões de respostas automáticas.</p>
+        <h1>Classificador e Gerador de Respostas para E-mails com IA</h1>
+        <p>Insira o conteúdo do e-mail abaixo ou faça upload de um arquivo (.txt ou .pdf) para classificar e gerar uma resposta.</p>
 
-        <form id="emailForm">
+        <!-- O formulário com id 'email-form' e tipo de codificação para upload de arquivos -->
+        <form id="email-form" enctype="multipart/form-data">
             <div class="form-group">
-                <label for="emailTextInput">Cole o conteúdo do e-mail aqui:</label>
-                <textarea id="emailTextInput" name="email_text" rows="10" placeholder="Ex: Olá equipe, preciso de ajuda com meu extrato de novembro..."></textarea>
+                <label for="email-text-area">Conteúdo do E-mail:</label>
+                <!-- Textarea para o conteúdo do e-mail -->
+                <textarea id="email-text-area" name="email_text" rows="10" placeholder="Cole o conteúdo do e-mail aqui..."></textarea>
             </div>
 
-            <p class="or-separator">OU</p>
-
             <div class="form-group">
-                <label for="emailFileInput">Faça upload de um arquivo de e-mail (.txt ou .pdf):</label>
-                <input type="file" id="emailFileInput" name="email_file" accept=".txt, .pdf">
+                <label for="email-file-input">Ou envie um arquivo:</label>
+                <!-- Input para upload de arquivo -->
+                <input type="file" id="email-file-input" name="email_file" accept=".txt,.pdf">
             </div>
 
-            <button type="submit" id="processButton">Processar E-mail</button>
+            <!-- Botão para enviar o formulário -->
+            <button type="submit">Processar E-mail</button>
         </form>
 
-        <!-- Novos elementos para feedback -->
-        <div id="loadingIndicator" class="feedback-message loading" style="display: none;">
-            <div class="spinner"></div>
-            <p>Processando, aguarde...</p>
-        </div>
-        <div id="errorMessage" class="feedback-message error" style="display: none;"></div>
-        <div id="successMessage" class="feedback-message success" style="display: none;"></div>
-        
-        <div id="results" class="results-area" style="display: none;">
-            <h2>Resultados da Análise:</h2>
-            <p><strong>Classificação:</strong> <span id="classification_result"></span></p>
-            <p><strong>Resposta Automática Sugerida:</strong></p>
-            <textarea id="auto_reply_result" rows="8" readonly></textarea>
-            <button onclick="copyToClipboard()">Copiar Resposta</button>
+        <!-- Área para exibir os resultados da IA -->
+        <div id="result-display" class="result-box">
+            <h3>Resultado:</h3>
+            <p id="classification-output">Aguardando processamento...</p>
+            <p id="response-output"></p>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <!-- Inclui o JavaScript. 'defer' garante que o HTML é carregado antes do script. -->
+    <!-- Este é o ponto mais crítico. Se este caminho estiver errado ou o script tiver um erro
+         que o impeça de carregar, o preventDefault não funcionará. -->
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 </body>
 </html>
