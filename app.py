@@ -2,7 +2,7 @@ import os
 from flask import Flask, render_template, request, jsonify, session
 import PyPDF2 # Para ler PDF
 from openai import OpenAI # Para a nova versão da biblioteca OpenAI (versão >= 1.0.0)
-import json # Para lidar com JSON, embora jsonify já faça parte do Flask
+import json # Para lidar com JSON
 
 app = Flask(__name__)
 
@@ -10,12 +10,12 @@ app = Flask(__name__)
 
 # 1. SECRET_KEY: ESSENCIAL para segurança de sessões e cookies.
 #    Em produção, deve ser uma string longa e aleatória, armazenada como variável de ambiente.
-#    'your_insecure_default_secret_for_dev_only' é um fallback MUITO INSEGURO para desenvolvimento.
+#    Use o comando Python: import os; print(os.urandom(24).hex()) para gerar um valor.
 #    No Render, você irá DEFINIR 'SESSION_SECRET' NAS VARIÁVEIS DE AMBIENTE.
-app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'uma_chave_secreta_padrao_muito_insegura_para_desenvolvimento_local_apenas')
+app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'sua_chave_secreta_padrao_muito_insegura_apenas_para_desenvolvimento_local')
 
 # 2. Desabilitar modo de DEBUG em produção
-#    No Render, NÓS IREMOS GARANTIR QUE ISSO ESTEJA DESATIVADO.
+#    No Render, isso será automaticamente tratado, mas é bom ter no código.
 app.config['DEBUG'] = False # Sempre False para deploy de produção
 
 # 3. Carregar Chaves de API (OpenAI) de variáveis de ambiente
@@ -28,10 +28,9 @@ if openai_api_key:
     client = OpenAI(api_key=openai_api_key)
 else:
     print("AVISO: A variável de ambiente OPENAI_API_KEY não está definida.")
-    print("As chamadas à API da OpenAI falharão até que seja configurada.")
-    # Em um ambiente de produção real, você pode querer lançar uma exceção aqui
-    # para evitar que o aplicativo inicie sem uma dependência crítica.
-    # Ex: raise ValueError("OPENAI_API_KEY não definida. O aplicativo não pode iniciar em produção.")
+    print("As chamadas à API da OpenAI falharão até que seja configurada no ambiente.")
+    # Em um ambiente de produção crítico, considere lançar uma exceção:
+    # raise ValueError("OPENAI_API_KEY não definida. O aplicativo não pode iniciar sem ela.")
 
 # --- ROTAS DA SUA APLICAÇÃO ---
 
@@ -60,7 +59,7 @@ def processar_email():
                 return jsonify({"error": f"Erro ao processar PDF: {str(e)}"}), 400
         else:
             return jsonify({"error": "Formato de arquivo não suportado. Use .txt ou .pdf."}), 400
-    # Se não houver arquivo, verifica o campo de texto
+    # Se não houver arquivo, verifica o campo de texto (text_area)
     elif 'email_text' in request.form:
         email_content = request.form['email_text']
     else:
@@ -70,15 +69,14 @@ def processar_email():
         return jsonify({"error": "O conteúdo do e-mail não pode estar vazio."}), 400
 
     try:
-        # Exemplo de chamada à API da OpenAI para classificação e resposta
-        # O prompt foi ajustado para solicitar uma resposta no formato JSON.
+        # Chamada à API da OpenAI para classificação e resposta
+        # A linha com o exemplo JSON foi removida para evitar problemas de sintaxe.
+        # A instrução 'response_format' garante a resposta JSON.
         response = client.chat.completions.create(
             model="gpt-3.5-turbo", # Ou "gpt-4", se preferir
             messages=[
                 {"role": "system", "content": "Você é um assistente que classifica e-mails como 'Produtivo' ou 'Improdutivo' e gera uma resposta adequada. Responda no formato JSON com as chaves 'classificacao' e 'resposta'."},
-                {"role": "user", "content": f"Classifique o seguinte e-mail: '{email_content}'. Gere também uma resposta curta e profissional para ele. Ambas as saídas devem estar em português."},
-                # LINHA CORRIGIDA AQUI: Aspas duplas internas foram escapadas.
-                {"role": "user", "content": "Exemplo de resposta JSON: {"classificacao": "Produtivo", "resposta": "Obrigado pelo seu e-mail. Vamos analisar sua solicitação."}"}
+                {"role": "user", "content": f"Classifique o seguinte e-mail: '{email_content}'. Gere também uma resposta curta e profissional para ele. Ambas as saídas devem estar em português."}
             ],
             max_tokens=200, # Aumente conforme a necessidade de respostas mais longas
             temperature=0.7,
@@ -108,4 +106,3 @@ if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     print(f"Rodando em modo de desenvolvimento local. DEBUG={app.config['DEBUG']} na porta {port}")
     app.run(host='0.0.0.0', port=port, debug=app.config['DEBUG'])
-    
