@@ -1,54 +1,52 @@
 import os
 from flask import Flask, render_template, request, jsonify, session
-import PyPDF2 # Certifique-se de que PyPDF2 esteja no seu requirements.txt
-# import openai # Se você estiver usando o SDK openai, descomente e use aqui
-import json # Necessário para o jsonify, mas geralmente já é importado pelo Flask
+import PyPDF2 # Para ler PDF
+from openai import OpenAI # Para a nova versão da biblioteca OpenAI (versão >= 1.0.0)
+import json # Para lidar com JSON, embora jsonify já faça parte do Flask
 
 app = Flask(__name__)
 
-# --- Configurações para Produção ---
+# --- CONFIGURAÇÃO PARA PRODUÇÃO E SEGURANÇA ---
 
 # 1. SECRET_KEY: ESSENCIAL para segurança de sessões e cookies.
 #    Em produção, deve ser uma string longa e aleatória, armazenada como variável de ambiente.
 #    'your_insecure_default_secret_for_dev_only' é um fallback MUITO INSEGURO para desenvolvimento.
-#    NO RENDER, VOCÊ IRÁ DEFINIR 'SESSION_SECRET' NAS VARIÁVEIS DE AMBIENTE.
-app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'your_insecure_default_secret_for_dev_only')
+#    No Render, você irá DEFINIR 'SESSION_SECRET' NAS VARIÁVEIS DE AMBIENTE.
+app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'uma_chave_secreta_padrao_muito_insegura_para_desenvolvimento_local_apenas')
 
 # 2. Desabilitar modo de DEBUG em produção
-#    NO RENDER, NÓS IREMOS GARANTIR QUE ISSO ESTEJA DESATIVADO.
+#    No Render, NÓS IREMOS GARANTIR QUE ISSO ESTEJA DESATIVADO.
 app.config['DEBUG'] = False # Sempre False para deploy de produção
 
 # 3. Carregar Chaves de API (OpenAI) de variáveis de ambiente
-#    NO RENDER, VOCÊ IRÁ DEFINIR 'OPENAI_API_KEY' NAS VARIÁVEIS DE AMBIENTE.
+#    No Render, você irá DEFINIR 'OPENAI_API_KEY' NAS VARIÁVEIS DE AMBIENTE.
 openai_api_key = os.environ.get('OPENAI_API_KEY')
 
-if not openai_api_key:
-    # Em produção, é melhor levantar um erro se a chave não estiver definida
-    # para garantir que o aplicativo não inicie com funcionalidades críticas desabilitadas.
-    # No desenvolvimento, você pode ter um aviso ou um fallback.
+# --- INICIALIZAÇÃO DA API DA OPENAI ---
+client = None # Inicializa client como None
+if openai_api_key:
+    client = OpenAI(api_key=openai_api_key)
+else:
     print("AVISO: A variável de ambiente OPENAI_API_KEY não está definida.")
-    # No Render, se isso acontecer, o deploy vai falhar, o que é o comportamento desejado.
-    # raise ValueError("OPENAI_API_KEY não definida. O aplicativo não pode iniciar em produção.")
+    print("As chamadas à API da OpenAI falharão até que seja configurada.")
+    # Em um ambiente de produção real, você pode querer lançar uma exceção aqui
+    # para evitar que o aplicativo inicie sem uma dependência crítica.
+    # Ex: raise ValueError("OPENAI_API_KEY não definida. O aplicativo não pode iniciar em produção.")
 
-# --- Configuração do OpenAI (se estiver usando o SDK) ---
-# Se você estiver usando o SDK da OpenAI (versão >= 1.0.0), a chave é configurada assim:
-# from openai import OpenAI
-# client = OpenAI(api_key=openai_api_key)
-
-# Se estiver usando a versão antiga do SDK (0.x.x):
-# import openai
-# openai.api_key = openai_api_key
-
-
-# --- Suas Rotas e Lógica de Aplicativo ---
+# --- ROTAS DA SUA APLICAÇÃO ---
 
 @app.route('/')
 def home():
+    # A rota principal deve renderizar seu HTML (geralmente index.html)
     return render_template('index.html')
 
-@app.route('/classify-email', methods=['POST'])
-def classify_email():
+@app.route('/processar_email', methods=['POST'])
+def processar_email():
+    if not openai_api_key or not client:
+        return jsonify({"error": "Configuração da OpenAI API key está faltando no servidor."}), 500
+
     email_content = ""
+    # Verifica se há um arquivo sendo enviado
     if 'email_file' in request.files and request.files['email_file'].filename != '':
         file = request.files['email_file']
         if file.filename.endswith('.txt'):
@@ -62,6 +60,7 @@ def classify_email():
                 return jsonify({"error": f"Erro ao processar PDF: {str(e)}"}), 400
         else:
             return jsonify({"error": "Formato de arquivo não suportado. Use .txt ou .pdf."}), 400
+    # Se não houver arquivo, verifica o campo de texto
     elif 'email_text' in request.form:
         email_content = request.form['email_text']
     else:
@@ -71,36 +70,36 @@ def classify_email():
         return jsonify({"error": "O conteúdo do e-mail não pode estar vazio."}), 400
 
     try:
-        # AQUI VOCÊ INTEGRARÁ COM A API DO OPENAI
-        # Estou usando um placeholder para simular a resposta,
-        # substitua pela sua lógica real da OpenAI.
-        # Exemplo com o novo SDK (se client estiver definido globalmente):
-        # response = client.chat.completions.create(
-        #     model="gpt-3.5-turbo",
-        #     messages=[
-        #         {"role": "system", "content": "Você é um assistente que classifica e-mails como 'Produtivo' ou 'Improdutivo' e gera uma resposta."},
-        #         {"role": "user", "content": f"Classifique este e-mail: '{email_content}' e gere uma resposta para ele. Responda no formato JSON com 'classificacao' e 'resposta'."}
-        #     ]
-        # )
-        # ai_response_content = response.choices[0].message.content
-        # ai_data = json.loads(ai_response_content) # Assumindo que a IA responde em JSON
-
-        # Placeholder da resposta da IA:
-        ai_data = {
-            "classificacao": "Produtivo" if "urgente" in email_content.lower() else "Improdutivo",
-            "resposta": f"Olá! Recebi seu e-mail e ele foi classificado como '{'Produtivo' if 'urgente' in email_content.lower() else 'Improdutivo'}'. Sua resposta será processada em breve. O conteúdo do e-mail é: {email_content[:100]}..."
-        }
+        # Exemplo de chamada à API da OpenAI para classificação e resposta
+        # O prompt foi ajustado para solicitar uma resposta no formato JSON.
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo", # Ou "gpt-4", se preferir
+            messages=[
+                {"role": "system", "content": "Você é um assistente que classifica e-mails como 'Produtivo' ou 'Improdutivo' e gera uma resposta adequada. Responda no formato JSON com as chaves 'classificacao' e 'resposta'."},
+                {"role": "user", "content": f"Classifique o seguinte e-mail: '{email_content}'. Gere também uma resposta curta e profissional para ele. Ambas as saídas devem estar em português."},
+                # LINHA CORRIGIDA AQUI: Aspas duplas internas foram escapadas.
+                {"role": "user", "content": "Exemplo de resposta JSON: {"classificacao": "Produtivo", "resposta": "Obrigado pelo seu e-mail. Vamos analisar sua solicitação."}"}
+            ],
+            max_tokens=200, # Aumente conforme a necessidade de respostas mais longas
+            temperature=0.7,
+            response_format={ "type": "json_object" } # Garante que a resposta venha em JSON
+        )
+        ai_response_content = response.choices[0].message.content
+        ai_data = json.loads(ai_response_content) # Converte a string JSON para um dicionário Python
 
         return jsonify({
             "classificacao": ai_data.get("classificacao", "Desconhecida"),
             "resposta_sugerida": ai_data.get("resposta", "Não foi possível gerar uma resposta.")
         })
-
+    except json.JSONDecodeError as e:
+        print(f"Erro ao decodificar JSON da OpenAI: {e}")
+        print(f"Resposta bruta da OpenAI: {ai_response_content}")
+        return jsonify({"error": f"Erro de formato na resposta da IA. Tente novamente ou ajuste o prompt. Detalhes: {e}"}), 500
     except Exception as e:
-        print(f"Erro ao processar com OpenAI: {e}")
+        print(f"Erro geral ao processar com OpenAI: {e}")
         return jsonify({"error": f"Erro ao processar e-mail com a IA: {str(e)}"}), 500
 
-# --- Ponto de Entrada para Desenvolvimento Local ---
+# --- PONTO DE ENTRADA PARA DESENVOLVIMENTO LOCAL ---
 # Este bloco 'if __name__ == "__main__":' só será executado quando você rodar
 # 'python app.py' diretamente. Em produção, um servidor WSGI (como Gunicorn)
 # importará o objeto 'app' diretamente, ignorando este bloco.
