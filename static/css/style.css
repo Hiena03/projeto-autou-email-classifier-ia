@@ -1,0 +1,208 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #eef2f7; /* Cor de fundo suave */
+    color: #333;
+    line-height: 1.6;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Alinha no topo */
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 700px;
+    width: 100%;
+    margin: 30px auto;
+    background-color: #ffffff;
+    padding: 35px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); /* Sombra mais suave */
+    text-align: center;
+}
+
+h1 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 2em;
+}
+
+h2 {
+    color: #34495e;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    font-size: 1.6em;
+}
+
+p {
+    color: #555;
+    margin-bottom: 25px;
+    font-size: 1.1em;
+}
+
+.form-group {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #34495e;
+    font-size: 1em;
+}
+
+textarea, input[type="file"] {
+    width: calc(100% - 24px); /* Ajusta para padding */
+    padding: 12px;
+    border: 1px solid #cdd6e0;
+    border-radius: 8px;
+    box-sizing: border-box; /* Inclui padding na largura */
+    font-size: 1em;
+    resize: vertical; /* Permite redimensionar verticalmente */
+    background-color: #fcfdff;
+}
+
+input[type="file"] {
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+button {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background-color: #3498db; /* Azul vibrante */
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin-top: 25px;
+}
+
+button:hover:not(:disabled) { /* Não aplica hover se desabilitado */
+    background-color: #2980b9; /* Azul mais escuro no hover */
+    transform: translateY(-2px);
+}
+
+button:disabled {
+    background-color: #cccccc; /* Cinza para botão desabilitado */
+    cursor: not-allowed;
+    transform: none; /* Remove efeito de transform */
+}
+
+.or-separator {
+    position: relative;
+    text-align: center;
+    margin: 30px 0;
+    color: #888;
+    font-size: 0.9em;
+}
+
+.or-separator::before,
+.or-separator::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background-color: #e0e0e0;
+}
+
+.or-separator::before {
+    left: 0;
+}
+
+.or-separator::after {
+    right: 0;
+}
+
+.results-area {
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 1px solid #eef2f7;
+}
+
+#results p {
+    text-align: left;
+    margin-bottom: 15px;
+}
+
+#results strong {
+    color: #2c3e50;
+}
+
+#classification_result {
+    font-weight: bold;
+    color: #007bff; /* Azul para destaque da classificação */
+}
+
+#auto_reply_result {
+    background-color: #f7f9fc;
+    border: 1px solid #eef2f7;
+    margin-bottom: 15px;
+    min-height: 150px;
+}
+
+/* --- Novos estilos para feedback --- */
+.feedback-message {
+    padding: 12px 15px;
+    margin-top: 20px;
+    margin-bottom: 10px; /* Adiciona margem inferior para separar do próximo elemento */
+    border-radius: 8px;
+    font-weight: bold;
+    text-align: center;
+    display: flex; /* Para alinhar spinner e texto */
+    align-items: center;
+    justify-content: center;
+    gap: 10px; /* Espaço entre spinner e texto */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.feedback-message.loading {
+    background-color: #e0f7fa; /* Light blue */
+    color: #007bff; /* Blue */
+    border: 1px solid #b2ebf2;
+}
+
+.feedback-message.error {
+    background-color: #fde6e9; /* Light red */
+    color: #c0392b; /* Dark red */
+    border: 1px solid #f9bdbf;
+}
+
+.feedback-message.success {
+    background-color: #e6fae6; /* Light green */
+    color: #27ae60; /* Dark green */
+    border: 1px solid #c9f0c9;
+}
+
+/* Estilo para o spinner */
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-top: 4px solid #007bff; /* Cor do spinner */
+    border-radius: 50%;
+    width: 24px; /* Aumentado um pouco */
+    height: 24px; /* Aumentado um pouco */
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Media Queries para responsividade básica */
+@media (max-width: 768px) {
+    .container {
+        margin: 20px 15px;
+        padding: 25px;
+    }
+    h1 { font-size: 1.8em; }
+    h2 { font-size: 1.4em; }
+    p, label, textarea, input, button { font-size: 0.95em; }
+}

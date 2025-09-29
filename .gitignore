@@ -1,0 +1,16 @@
+# Ignorar pasta de ambiente virtual
+venv/
+.venv/
+
+# Ignorar arquivos de ambiente (onde está sua chave da OpenAI!)
+.env
+
+# Ignorar arquivos de cache do Python
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# Ignorar arquivos de IDEs (se usar)
+.idea/
+.vscode/

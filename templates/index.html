@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROJETO AUTOU - Classificador de E-mail com IA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Classificador e Sugeridor de Respostas para E-mails</h1>
+        <p>Automatize a leitura e classificação de e-mails em categorias 'Produtivo' ou 'Improdutivo', e receba sugestões de respostas automáticas.</p>
+
+        <form id="emailForm">
+            <div class="form-group">
+                <label for="emailTextInput">Cole o conteúdo do e-mail aqui:</label>
+                <textarea id="emailTextInput" name="email_text" rows="10" placeholder="Ex: Olá equipe, preciso de ajuda com meu extrato de novembro..."></textarea>
+            </div>
+
+            <p class="or-separator">OU</p>
+
+            <div class="form-group">
+                <label for="emailFileInput">Faça upload de um arquivo de e-mail (.txt ou .pdf):</label>
+                <input type="file" id="emailFileInput" name="email_file" accept=".txt, .pdf">
+            </div>
+
+            <button type="submit" id="processButton">Processar E-mail</button>
+        </form>
+
+        <!-- Novos elementos para feedback -->
+        <div id="loadingIndicator" class="feedback-message loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Processando, aguarde...</p>
+        </div>
+        <div id="errorMessage" class="feedback-message error" style="display: none;"></div>
+        <div id="successMessage" class="feedback-message success" style="display: none;"></div>
+        
+        <div id="results" class="results-area" style="display: none;">
+            <h2>Resultados da Análise:</h2>
+            <p><strong>Classificação:</strong> <span id="classification_result"></span></p>
+            <p><strong>Resposta Automática Sugerida:</strong></p>
+            <textarea id="auto_reply_result" rows="8" readonly></textarea>
+            <button onclick="copyToClipboard()">Copiar Resposta</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
