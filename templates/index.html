@@ -1,46 +1,124 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classificador e Gerador de Respostas para E-mails com IA</title>
-    <!-- Inclui o CSS principal -->
+    <title>PROJETO AUTOU - Classificador de E-mail com IA</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📧</text></svg>">
 </head>
 <body>
     <div class="container">
-        <h1>Classificador e Gerador de Respostas para E-mails com IA</h1>
-        <p>Insira o conteúdo do e-mail abaixo ou faça upload de um arquivo (.txt ou .pdf) para classificar e gerar uma resposta.</p>
+        <header class="app-header">
+            <h1>📧 Classificador de E-mails com IA</h1>
+            <p class="subtitle">Automatize a classificação de e-mails e receba sugestões de respostas inteligentes</p>
+        </header>
 
-        <!-- O formulário com id 'email-form' e tipo de codificação para upload de arquivos -->
-        <form id="email-form" enctype="multipart/form-data">
-            <div class="form-group">
-                <label for="email-text-area">Conteúdo do E-mail:</label>
-                <!-- Textarea para o conteúdo do e-mail -->
-                <textarea id="email-text-area" name="email_text" rows="10" placeholder="Cole o conteúdo do e-mail aqui..."></textarea>
+        <main class="main-content">
+            <form id="emailForm" class="email-form">
+                <div class="form-group">
+                    <label for="emailTextInput">
+                        <span class="label-icon">✍️</span>
+                        Cole o conteúdo do e-mail aqui:
+                    </label>
+                    <textarea 
+                        id="emailTextInput" 
+                        name="email_text" 
+                        rows="8" 
+                        placeholder="Exemplo: Olá equipe, preciso de ajuda com meu extrato bancário de novembro. Não consigo acessar o sistema..."
+                        maxlength="10000"
+                    ></textarea>
+                    <small class="char-counter">
+                        <span id="charCount">0</span>/10.000 caracteres
+                    </small>
+                </div>
+
+                <div class="or-separator">
+                    <span>OU</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="emailFileInput">
+                        <span class="label-icon">📎</span>
+                        Faça upload de um arquivo (.txt ou .pdf):
+                    </label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="emailFileInput" name="email_file" accept=".txt,.pdf">
+                        <div class="file-input-display">
+                            <span class="file-placeholder">Nenhum arquivo selecionado</span>
+                            <button type="button" class="file-button">Escolher Arquivo</button>
+                        </div>
+                    </div>
+                    <small class="file-info">Tamanho máximo: 10MB</small>
+                </div>
+
+                <button type="submit" id="processButton" class="process-button">
+                    <span class="button-text">🚀 Processar E-mail</span>
+                </button>
+            </form>
+
+            <!-- Mensagens de Feedback -->
+            <div id="loadingIndicator" class="feedback-message loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Analisando e processando seu e-mail...</p>
             </div>
+            
+            <div id="errorMessage" class="feedback-message error" style="display: none;"></div>
+            <div id="successMessage" class="feedback-message success" style="display: none;"></div>
+            
+            <!-- Área de Resultados -->
+            <div id="results" class="results-area" style="display: none;">
+                <h2>📊 Resultados da Análise</h2>
+                
+                <div class="result-card">
+                    <h3>🏷️ Classificação</h3>
+                    <div class="classification-result">
+                        <span id="classification_result" class="classification-badge"></span>
+                    </div>
+                </div>
 
-            <div class="form-group">
-                <label for="email-file-input">Ou envie um arquivo:</label>
-                <!-- Input para upload de arquivo -->
-                <input type="file" id="email-file-input" name="email_file" accept=".txt,.pdf">
+                <div class="result-card">
+                    <h3>🤖 Resposta Automática Sugerida</h3>
+                    <div class="reply-container">
+                        <textarea id="auto_reply_result" rows="6" readonly placeholder="A resposta será gerada aqui..."></textarea>
+                        <div class="reply-actions">
+                            <button type="button" onclick="copyToClipboard()" class="copy-button">
+                                📋 Copiar Resposta
+                            </button>
+                            <button type="button" onclick="clearResults()" class="clear-button">
+                                ��️ Limpar Resultados
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informações Adicionais (Novo) -->
+                <div class="result-card additional-info" style="display: none;">
+                    <h3>🔍 Informações do Processamento</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <strong>Texto Processado (NLP):</strong>
+                            <p id="processed_text_result" class="processed-text"></p>
+                        </div>
+                        <div class="info-item">
+                            <strong>Caracteres Analisados:</strong>
+                            <p id="char_count_result"></p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="toggleAdditionalInfo()" class="toggle-info-button">
+                        👁️ Mostrar Detalhes Técnicos
+                    </button>
+                </div>
             </div>
+        </main>
 
-            <!-- Botão para enviar o formulário -->
-            <button type="submit">Processar E-mail</button>
-        </form>
-
-        <!-- Área para exibir os resultados da IA -->
-        <div id="result-display" class="result-box">
-            <h3>Resultado:</h3>
-            <p id="classification-output">Aguardando processamento...</p>
-            <p id="response-output"></p>
-        </div>
+        <footer class="app-footer">
+            <p>💡 Desenvolvido com Flask + OpenAI GPT-3.5-turbo | 
+               <a href="/health" >Status da API</a>
+            </p>
+        </footer>
     </div>
 
-    <!-- Inclui o JavaScript. 'defer' garante que o HTML é carregado antes do script. -->
-    <!-- Este é o ponto mais crítico. Se este caminho estiver errado ou o script tiver um erro
-         que o impeça de carregar, o preventDefault não funcionará. -->
-    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
