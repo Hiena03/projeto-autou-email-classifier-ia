@@ -1,120 +1,179 @@
 import os
-from flask import Flask, render_template, request, jsonify, session
-import PyPDF2 # Para ler PDF
-from openai import OpenAI # Para a nova versão da biblioteca OpenAI (versão >= 1.0.0)
-import json # Para lidar com JSON
+import io
+from flask import Flask, render_template, request, jsonify
+from dotenv import load_dotenv
+import PyPDF2
+# Importe a classe OpenAI e as exceções específicas
+from openai import OpenAI, OpenAIError, RateLimitError, APIConnectionError, AuthenticationError
 
+# Carrega as variáveis de ambiente do arquivo .env
+load_dotenv()
+
+# Inicializa a aplicação Flask
 app = Flask(__name__)
 
-# --- CONFIGURAÇÃO PARA PRODUÇÃO E SEGURANÇA ---
+# Instancia o cliente da OpenAI GLOBLAMENTE
+# Isso é crucial para a nova versão da biblioteca OpenAI (v1.x.x)
+# A chave da API é passada diretamente para o construtor do cliente
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# 1. SECRET_KEY: ESSENCIAL para segurança de sessões e cookies.
-#    Em produção, deve ser uma string longa e aleatória, armazenada como variável de ambiente.
-#    No Render, você DEVE DEFINIR 'SESSION_SECRET' NAS VARIÁVEIS DE AMBIENTE.
-#    Gere uma string como esta no terminal: python -c "import os; print(os.urandom(32).hex())"
-app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'uma_chave_secreta_padrao_muito_insegura_apenas_para_desenvolvimento_local')
+# Verifique se a chave de API está definida após a criação do cliente
+if not os.getenv("OPENAI_API_KEY"):
+    # Loga um aviso se a chave não for encontrada, útil para depuração
+    print("AVISO: Variável de ambiente OPENAI_API_KEY não definida. As chamadas à API da OpenAI podem falhar.")
 
-# 2. Desabilitar modo de DEBUG em produção
-app.config['DEBUG'] = False # Sempre False para deploy de produção
 
-# 3. Carregar Chaves de API (OpenAI) de variáveis de ambiente
-#    No Render, você DEVE DEFINIR 'OPENAI_API_KEY' NAS VARIÁVEIS DE AMBIENTE.
-openai_api_key = os.environ.get('OPENAI_API_KEY')
+# --- Funções de IA (Classificação e Geração de Resposta) ---
 
-# --- DEBUGGING: Verificar Variáveis de Ambiente (estes prints aparecerão nos logs do Render) ---
-print(f"DEBUG: Ambiente 'SECRET_KEY' configurado? {'Sim' if app.config['SECRET_KEY'] != 'uma_chave_secreta_padrao_muito_insegura_apenas_para_desenvolvimento_local' else 'Não (usando padrão inseguro)'}")
-print(f"DEBUG: Ambiente 'OPENAI_API_KEY' presente? {'Sim' if openai_api_key else 'Não'}")
+def classify_email(email_text):
+    """Classifica o e-mail como 'Produtivo' ou 'Improdutivo' usando a API da OpenAI."""
+    prompt = f"""
+    Classifique o seguinte e-mail como 'Produtivo' ou 'Improdutivo'.
+    - 'Produtivo': Requer uma ação específica, resposta ou acompanhamento (ex: solicitação de suporte, atualização de caso, dúvida sobre sistema, pedido de informação).
+    - 'Improdutivo': Não requer ação imediata ou é apenas informativo/cortesia (ex: felicitações, agradecimentos, mensagens genéricas, "Bom dia!", "Obrigado!").
 
-# --- INICIALIZAÇÃO DA API DA OPENAI ---
-client = None # Inicializa client como None
-if openai_api_key:
+    Email:
+    "{email_text}"
+
+    Classificação:
+    """
     try:
-        client = OpenAI(api_key=openai_api_key)
-        print("DEBUG: Cliente OpenAI inicializado com sucesso.")
+        response = openai_client.chat.completions.create( # Usando o objeto cliente instanciado
+            model="gpt-3.5-turbo", # Modelo da OpenAI
+            messages=[
+                {"role": "system", "content": "Você é um assistente de classificação de e-mails para um ambiente corporativo. Responda apenas com 'Produtivo' ou 'Improdutivo'."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=20, # Suficiente para "Produtivo" ou "Improdutivo"
+            temperature=0, # Queremos uma resposta consistente e determinística
+        )
+        classification = response.choices[0].message.content.strip()
+        if "Produtivo" in classification:
+            return "Produtivo"
+        elif "Improdutivo" in classification:
+            return "Improdutivo"
+        else:
+            # Caso a IA retorne algo inesperado
+            return "Inconclusivo"
     except Exception as e:
-        print(f"ERRO CRÍTICO: Falha ao inicializar o cliente OpenAI: {e}")
-        # Em produção, você pode querer levantar uma exceção aqui para impedir o deploy de um app disfuncional
-        # raise ValueError(f"Falha na inicialização da OpenAI: {e}")
-else:
-    print("AVISO: A variável de ambiente OPENAI_API_KEY não está definida no ambiente. As chamadas à API da OpenAI falharão.")
+        # Erros aqui serão capturados pela função processar_email
+        raise # Re-lança a exceção para ser tratada no nível superior
 
-# --- ROTAS DA SUA APLICAÇÃO ---
+def generate_auto_reply(email_text, classification):
+    """Gera uma resposta automática baseada na classificação do e-mail."""
+    if classification == "Produtivo":
+        prompt = f"""
+        Gere uma resposta automática para o seguinte e-mail classificado como 'Produtivo'.
+        A resposta deve ser cordial, confirmar o recebimento e informar que a equipe responsável ou de suporte entrará em contato em breve para tratar a solicitação. Mantenha a resposta concisa, profissional e adicione um toque amigável.
+        Apresente a resposta como se fosse um rascunho de e-mail pronto para ser enviado.
 
+        Email Original:
+        "{email_text}"
+
+        Resposta Automática Sugerida:
+        """
+    elif classification == "Improdutivo":
+        prompt = f"""
+        Gere uma resposta automática para o seguinte e-mail classificado como 'Improdutivo'.
+        A resposta deve ser cordial, agradecer a mensagem e informar que ela foi recebida e que nenhuma ação adicional é necessária. Mantenha a resposta concisa e amigável.
+        Apresente a resposta como se fosse um rascunho de e-mail pronto para ser enviado.
+
+        Email Original:
+        "{email_text}"
+
+        Resposta Automática Sugerida:
+        """
+    else: # Classificação 'Inconclusivo' ou 'Erro'
+        return "Não foi possível gerar uma resposta automática devido a uma classificação inconclusiva ou erro."
+
+    try:
+        response = openai_client.chat.completions.create( # Usando o objeto cliente instanciado
+            model="gpt-3.5-turbo", # Ou outro modelo da OpenAI que você prefira
+            messages=[
+                {"role": "system", "content": "Você é um assistente de e-mail cordial e profissional que gera rascunhos de respostas automáticas."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=200, # Ajuste conforme o tamanho desejado da resposta
+            temperature=0.7, # Permite um pouco mais de criatividade na resposta
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        # Erros aqui serão capturados pela função processar_email
+        raise # Re-lança a exceção para ser tratada no nível superior
+
+
+# --- Rotas da Aplicação Flask ---
+
+# Rota principal - Serve o seu arquivo index.html
 @app.route('/')
 def home():
-    print("DEBUG: Rota '/' acessada. Renderizando index.html")
     return render_template('index.html')
 
+# Rota para processar a análise - será acionada pelo formulário ou JS
 @app.route('/processar_email', methods=['POST'])
 def processar_email():
-    print("DEBUG: Rota '/processar_email' acessada.")
-
-    if not client: # Verifica se o cliente OpenAI foi inicializado com sucesso
-        print("ERRO: Cliente OpenAI não inicializado. Verifique a OPENAI_API_KEY nas variáveis de ambiente.")
-        return jsonify({"error": "O serviço de IA não está disponível (API Key ausente ou inválida)."}), 500
-
     email_content = ""
-    # Verifica se há um arquivo sendo enviado
-    if 'email_file' in request.files and request.files['email_file'].filename != '':
-        file = request.files['email_file']
-        print(f"DEBUG: Arquivo recebido: {file.filename}")
-        if file.filename.lower().endswith('.txt'):
-            email_content = file.read().decode('utf-8')
-        elif file.filename.lower().endswith('.pdf'):
-            try:
-                reader = PyPDF2.PdfReader(file)
-                for page_num in range(len(reader.pages)):
-                    email_content += reader.pages[page_num].extract_text() + "\n"
-                print("DEBUG: PDF processado.")
-            except Exception as e:
-                print(f"ERRO: Erro ao processar PDF: {str(e)}")
-                return jsonify({"error": f"Erro ao processar PDF: {str(e)}"}), 400
-        else:
-            print(f"ERRO: Formato de arquivo não suportado: {file.filename}")
-            return jsonify({"error": "Formato de arquivo não suportado. Use .txt ou .pdf."}), 400
-    # Se não houver arquivo, verifica o campo de texto (text_area)
-    elif 'email_text' in request.form:
+
+    # Tenta pegar o texto digitado primeiro
+    if 'email_text' in request.form and request.form['email_text']:
         email_content = request.form['email_text']
-        print("DEBUG: Texto de e-mail recebido via formulário.")
+    # Se não houver texto, tenta pegar um arquivo
+    elif 'email_file' in request.files and request.files['email_file']:
+        file = request.files['email_file']
+        if file.filename == '': # Nenhum arquivo selecionado
+            return jsonify({"status": "error", "message": "Nenhum arquivo selecionado."}), 400
+
+        if file.filename.endswith('.txt'):
+            email_content = file.read().decode('utf-8')
+        elif file.filename.endswith('.pdf'):
+            try:
+                # PyPDF2 requer um objeto de arquivo binário
+                reader = PyPDF2.PdfReader(io.BytesIO(file.read()))
+                for page_num in range(len(reader.pages)):
+                    email_content += reader.pages[page_num].extract_text() or ""
+                if not email_content.strip(): # Verifica se o PDF não tinha texto
+                     return jsonify({"status": "error", "message": "O arquivo PDF está vazio ou não contém texto legível."}), 400
+            except Exception as e:
+                app.logger.error(f"Erro ao ler PDF: {e}")
+                return jsonify({"status": "error", "message": "Erro ao ler o arquivo PDF. Certifique-se de que é um PDF válido e não está corrompido."}), 400
+        else:
+            return jsonify({"status": "error", "message": "Formato de arquivo não suportado. Use .txt ou .pdf."}), 400
     else:
-        print("ERRO: Nenhum conteúdo de e-mail fornecido (nem arquivo, nem texto).")
-        return jsonify({"error": "Nenhum conteúdo de e-mail fornecido."}), 400
+        # Esta validação é mais um fallback, o frontend já deve impedir isso.
+        return jsonify({"status": "error", "message": "Por favor, forneça o texto do e-mail ou faça upload de um arquivo."}), 400
 
     if not email_content.strip():
-        print("ERRO: Conteúdo do e-mail vazio ou apenas espaços em branco.")
-        return jsonify({"error": "O conteúdo do e-mail não pode estar vazio."}), 400
+        return jsonify({"status": "error", "message": "O conteúdo fornecido está vazio após a leitura."}), 400
 
     try:
-        print("DEBUG: Iniciando chamada à API da OpenAI...")
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo", # Você pode usar "gpt-4", se preferir e tiver acesso
-            messages=[
-                {"role": "system", "content": "Você é um assistente que classifica e-mails como 'Produtivo' ou 'Improdutivo' e gera uma resposta adequada. Responda APENAS no formato JSON com as chaves 'classificacao' e 'resposta'."},
-                {"role": "user", "content": f"Classifique o seguinte e-mail: '{email_content}'. Gere também uma resposta curta e profissional para ele. Ambas as saídas devem estar em português."}
-            ],
-            max_tokens=200, # Aumente conforme a necessidade de respostas mais longas
-            temperature=0.7,
-            response_format={ "type": "json_object" } # Garante que a resposta venha em JSON
-        )
-        ai_response_content = response.choices[0].message.content
-        print(f"DEBUG: Resposta bruta da OpenAI recebida: {ai_response_content}")
-        
-        # Tenta carregar a resposta JSON
-        ai_data = json.loads(ai_response_content) 
+        classification = classify_email(email_content)
+        auto_reply = generate_auto_reply(email_content, classification)
 
         return jsonify({
-            "classificacao": ai_data.get("classificacao", "Desconhecida"),
-            "resposta_sugerida": ai_data.get("resposta", "Não foi possível gerar uma resposta.")
-        })
-    except json.JSONDecodeError as e:
-        print(f"ERRO: json.JSONDecodeError da OpenAI: {e}. Resposta bruta recebida: '{ai_response_content}'")
-        return jsonify({"error": f"A IA não retornou um JSON válido. Detalhes: {e}. Resposta da IA: {ai_response_content[:100]}..."}), 500
+            "status": "success",
+            "classification": classification,
+            "auto_reply": auto_reply,
+            "original_email": email_content
+        }), 200 # Status 200 para sucesso
+    
+    except AuthenticationError:
+        return jsonify({"status": "error", "message": "Erro de autenticação com a OpenAI. Verifique sua chave de API (OPENAI_API_KEY)."}), 401
+    except RateLimitError:
+        return jsonify({"status": "error", "message": "Limite de uso da OpenAI excedido. Por favor, verifique seu plano e saldo na plataforma OpenAI."}), 429
+    except APIConnectionError:
+        return jsonify({"status": "error", "message": "Não foi possível conectar à API da OpenAI. Verifique sua conexão de internet ou as configurações da API."}), 500
+    except OpenAIError as e:
+        # Captura outros erros da API OpenAI (ex: erros de validação de modelo, etc.)
+        app.logger.error(f"Erro na API da OpenAI: {e}")
+        return jsonify({"status": "error", "message": f"Erro na API da OpenAI: {str(e)}"}), 500
     except Exception as e:
-        print(f"ERRO: Erro geral ao processar com OpenAI: {e}")
-        return jsonify({"error": f"Erro ao processar e-mail com a IA: {str(e)}"}), 500
+        # Captura quaisquer outros erros inesperados
+        app.logger.error(f"Erro inesperado no processamento: {e}")
+        return jsonify({"status": "error", "message": "Ocorreu um erro inesperado ao processar sua requisição."}), 500
 
-# --- PONTO DE ENTRADA PARA DESENVOLVIMENTO LOCAL ---
-if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
-    print(f"DEBUG: Rodando em modo de desenvolvimento local. DEBUG={app.config['DEBUG']} na porta {port}")
-    app.run(host='0.0.0.0', port=port, debug=app.config['DEBUG'])
+
+# Bloco para rodar a aplicação quando o script é executado diretamente
+if __name__ == '__main__':
+    # debug=True ativa o modo de depuração (útil para desenvolvimento)
+    # Não use debug=True em produção
+    app.run(debug=True)
