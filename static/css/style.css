@@ -461,7 +461,7 @@ textarea:focus {
     text-decoration: underline;
 }
 
-/* Toast Notifications (Novo) */
+/* Toast Notifications */
 .toast {
     position: fixed;
     top: 20px;

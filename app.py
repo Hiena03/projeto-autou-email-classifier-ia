@@ -16,11 +16,10 @@ app = Flask(__name__)
 # Instancia o cliente da OpenAI
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Verifique se a chave de API está definida
 if not os.getenv("OPENAI_API_KEY"):
     print("AVISO: Variável de ambiente OPENAI_API_KEY não definida. As chamadas à API da OpenAI podem falhar.")
 
-# --- Função de Pré-processamento NLP (ADICIONADO) ---
+# Função de Pré-processamento NLP
 def preprocess_text(text):
     """
     Aplica técnicas básicas de NLP para pré-processar o texto.
@@ -29,13 +28,13 @@ def preprocess_text(text):
     if not text or not text.strip():
         return ""
     
-    # Converter para minúsculas
+    # Converte para minúsculas
     text = text.lower()
     
-    # Remover pontuações
+    # Remove pontuações
     text = text.translate(str.maketrans('', '', string.punctuation))
     
-    # Remover números isolados
+    # Remove números isolados
     text = re.sub(r'\b\d+\b', '', text)
     
     # Stop words básicas em português (lista simplificada para não depender do NLTK)
@@ -57,40 +56,33 @@ def preprocess_text(text):
         'sejamos', 'sejam', 'fosse', 'fôssemos', 'fossem', 'for', 'formos', 'forem', 'serei',
         'será', 'seremos', 'serão', 'seria', 'seríamos', 'seriam'
     }
-    
+
     # Tokenização simples e remoção de stop words
     words = text.split()
     filtered_words = [word for word in words if word not in stop_words and len(word) > 2]
     
-    # Remover espaços extras
+    # Remove espaços extras
     processed_text = ' '.join(filtered_words)
-    
     return processed_text.strip()
 
-# --- Funções de IA (Classificação e Geração de Resposta) ---
-
+# Funções de IA (Classificação e Geração de Resposta)
 def classify_email(email_text):
     """Classifica o e-mail como 'Produtivo' ou 'Improdutivo' usando a API da OpenAI."""
     
     # Aplicar pré-processamento NLP
     processed_text = preprocess_text(email_text)
-    
     prompt = f"""
     Classifique o seguinte e-mail como 'Produtivo' ou 'Improdutivo'.
-    
     Definições:
     - 'Produtivo': Requer uma ação específica, resposta ou acompanhamento. Exemplos: solicitação de suporte técnico, atualização sobre casos em aberto, dúvidas sobre sistema, pedidos de informação, reclamações, solicitações de documentos, questões financeiras.
     - 'Improdutivo': Não requer ação imediata ou é apenas informativo/cortesia. Exemplos: felicitações, agradecimentos, mensagens genéricas como "Bom dia!", "Obrigado!", "Feliz Natal", cumprimentos.
-
     Email original:
     "{email_text}"
-    
     Email processado (após NLP):
     "{processed_text}"
-
     Responda APENAS com 'Produtivo' ou 'Improdutivo'.
     """
-    
+
     try:
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -111,8 +103,7 @@ def classify_email(email_text):
         else:
             # Fallback: se a IA não retornar uma classificação clara
             app.logger.warning(f"Classificação inesperada da IA: {classification}")
-            return "Inconclusivo"
-            
+            return "Inconclusivo"          
     except Exception as e:
         app.logger.error(f"Erro na classificação: {e}")
         raise
@@ -130,26 +121,21 @@ def generate_auto_reply(email_text, classification):
         - Ser concisa e profissional
         - Incluir um prazo estimado de resposta (ex: "em até 24 horas úteis")
         - Ter um tom amigável mas corporativo
-        
         Email original:
         "{email_text}"
-
         Gere apenas a resposta automática, sem cabeçalhos ou assinaturas:
         """
     elif classification == "Improdutivo":
         prompt = f"""
         Gere uma resposta automática cordial para o seguinte e-mail classificado como 'Improdutivo'.
-        
         A resposta deve:
         - Agradecer pela mensagem
         - Ser cordial e amigável
         - Informar que a mensagem foi recebida
         - Ser concisa
         - Retribuir o sentimento quando apropriado (ex: se for felicitação, retribuir)
-        
         Email original:
         "{email_text}"
-
         Gere apenas a resposta automática, sem cabeçalhos ou assinaturas:
         """
     else:
@@ -171,8 +157,7 @@ def generate_auto_reply(email_text, classification):
         app.logger.error(f"Erro na geração de resposta: {e}")
         raise
 
-# --- Rotas da Aplicação Flask ---
-
+# Rotas da Aplicação Flask
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -188,7 +173,7 @@ def processar_email():
         # Se não houver texto, tenta pegar um arquivo
         elif 'email_file' in request.files and request.files['email_file']:
             file = request.files['email_file']
-            
+
             if file.filename == '':
                 return jsonify({"status": "error", "message": "Nenhum arquivo selecionado."}), 400
 
@@ -226,15 +211,15 @@ def processar_email():
         else:
             return jsonify({"status": "error", "message": "Por favor, forneça o texto do e-mail ou faça upload de um arquivo."}), 400
 
-        # Validar conteúdo
+        # Valida conteúdo
         if not email_content or not email_content.strip():
             return jsonify({"status": "error", "message": "O conteúdo fornecido está vazio."}), 400
 
-        # Validar tamanho do conteúdo
+        # Valida tamanho do conteúdo
         if len(email_content) > 10000:  # 10k caracteres
             return jsonify({"status": "error", "message": "Conteúdo muito longo. Máximo permitido: 10.000 caracteres."}), 400
 
-        # Processar o email
+        # Processa o email
         classification = classify_email(email_content)
         auto_reply = generate_auto_reply(email_content, classification)
 
